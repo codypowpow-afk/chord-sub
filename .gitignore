@@ -1,0 +1,10 @@
+# build output
+dist/
+desktop/packages/
+
+# local audio for testing
+*.wav
+*.aif
+*.aiff
+*.mp3
+*.flac

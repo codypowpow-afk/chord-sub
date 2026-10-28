@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chord Sub</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header class="titlebar">
+    <div class="brand"><span class="logo">CHORD<b>SUB</b></span><span class="by">melody → chords → sub bass</span></div>
+    <div class="transport">
+      <button id="playBtn" class="btn hot wide" title="Space">PLAY</button>
+      <label>BPM</label><input id="bpm" class="lcd" type="number" min="50" max="220" step="0.01">
+      <label>BARS</label>
+      <select id="bars"><option>1</option><option>2</option><option>4</option><option>8</option><option>16</option></select>
+      <label>MEL</label><input id="melVol" type="range" min="0" max="1.2" step="0.01" title="Melody clip volume">
+      <button id="melMute" class="btn mini" title="Mute melody clip">M</button>
+      <label>SUB</label><input id="subVol" type="range" min="0" max="1.5" step="0.01" title="Sub bass volume">
+      <button id="subMute" class="btn mini" title="Mute sub">M</button>
+    </div>
+    <div class="top-buttons">
+      <select id="loopsSel" title="Loops to render"><option value="1">1 loop</option><option value="2">2 loops</option><option value="4" selected>4 loops</option><option value="8">8 loops</option></select>
+      <button id="wavSubBtn" class="btn" title="Render only the sub to WAV">WAV SUB</button>
+      <button id="wavMixBtn" class="btn" title="Render melody + sub to WAV">WAV MIX</button>
+      <button id="midiBtn" class="btn" title="Sub line and chords as MIDI">MIDI</button>
+    </div>
+  </header>
+
+  <!-- 1 CLIPS -->
+  <section class="panel">
+    <div class="sec-head">
+      <span class="num">1</span><span class="sec-title">MELODY CLIPS</span>
+      <div id="clipList" class="chips"></div>
+      <button id="loadClipBtn" class="btn">+ LOAD CLIPS</button>
+      <button id="demoBtn" class="btn">DEMO LOOP</button>
+      <input type="file" id="clipInput" accept="audio/*,.wav,.aif,.aiff,.mp3,.flac,.ogg,.m4a" multiple hidden>
+    </div>
+    <div class="wave-wrap" id="waveWrap">
+      <canvas id="wave"></canvas>
+      <div class="drop-hint" id="dropHint">Drop melody clips or loops here, press + LOAD CLIPS, or try DEMO LOOP<br><small>WAV / MP3 / FLAC / OGG / M4A · the clip is gridded as whole bars</small></div>
+      <div class="busy" id="busy" hidden><span id="busyText">ANALYZING</span></div>
+    </div>
+    <div class="row">
+      <div class="group">
+        <div class="glabel">KEY</div>
+        <div class="inline"><select id="keySel"></select><select id="modeSel"></select></div>
+      </div>
+      <div class="group">
+        <div class="glabel">DETECTED</div>
+        <span id="detInfo" class="lcd-inline">—</span>
+      </div>
+      <div class="group slider wide-slider">
+        <div class="glabel">CLIP START <span id="offsetOut"></span></div>
+        <input type="range" id="offset" min="0" max="1" step="0.001" title="Where bar 1 starts in the clip">
+      </div>
+      <div class="group">
+        <div class="glabel">NUDGE</div>
+        <div class="seg"><button id="nudgeL" title="Start one 16th earlier">◀ 1/16</button><button id="nudgeR" title="Start one 16th later">1/16 ▶</button></div>
+      </div>
+      <div class="group">
+        <div class="glabel">TEMPO</div>
+        <div class="seg"><button id="halfBtn" title="Half the BPM (and bars)">½×</button><button id="dblBtn" title="Double the BPM (and bars)">2×</button></div>
+      </div>
+      <div class="group">
+        <div class="glabel">CHORD EVERY</div>
+        <div class="seg" id="segBeats"><button data-v="2">½ BAR</button><button data-v="4">1 BAR</button><button data-v="8">2 BARS</button></div>
+      </div>
+      <div class="group">
+        <div class="glabel">&nbsp;</div>
+        <button id="redetectBtn" class="btn" title="Detect chords again (drops your chord edits)">RE-DETECT</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 CHORDS -->
+  <section class="panel">
+    <div class="sec-head">
+      <span class="num">2</span><span class="sec-title">CHORD PROGRESSION</span>
+      <span class="hint">Pick a chord to change it · the sub follows these</span>
+      <button id="diatonicBtn" class="btn small" title="Snap every chord to the nearest chord in key">SNAP TO KEY</button>
+    </div>
+    <div id="chordStrip" class="chord-strip"></div>
+  </section>
+
+  <!-- 3 SUB LINE -->
+  <section class="panel">
+    <div class="sec-head">
+      <span class="num">3</span><span class="sec-title">SUB LINE</span>
+      <span class="hint">Click: add · Drag: move / pitch · Drag edge: length · Right-click: delete · Dbl-click: slide · Alt-click: reroll note</span>
+    </div>
+    <div class="row">
+      <div class="group">
+        <div class="glabel">STYLE</div>
+        <select id="rhythmSel"></select>
+      </div>
+      <div class="group">
+        <div class="glabel">NOTES</div>
+        <div class="seg" id="harmonySeg"></div>
+      </div>
+      <div class="group slider"><div class="glabel">DENSITY <span data-out="density"></span></div><input type="range" data-gen="density" min="0" max="1" step="0.01"></div>
+      <div class="group slider"><div class="glabel">ROOT ON CHANGE <span data-out="anchor"></span></div><input type="range" data-gen="anchor" min="0" max="1" step="0.01" title="Chance the first note of each chord is its root"></div>
+      <div class="group slider"><div class="glabel">MOVEMENT <span data-out="movement"></span></div><input type="range" data-gen="movement" min="0" max="1" step="0.01" title="Low: steps and repeats · High: leaps"></div>
+      <div class="group slider"><div class="glabel">MELODY FIT <span data-out="fit"></span></div><input type="range" data-gen="fit" min="0" max="1" step="0.01" title="Avoid notes that rub against the melody above"></div>
+      <div class="group slider"><div class="glabel">COUNTER <span data-out="counter"></span></div><input type="range" data-gen="counter" min="0" max="1" step="0.01" title="Move against the melody (contrary motion)"></div>
+      <div class="group slider"><div class="glabel">SLIDES <span data-out="glide"></span></div><input type="range" data-gen="glide" min="0" max="1" step="0.01"></div>
+      <div class="group slider"><div class="glabel">OCTAVE JUMPS <span data-out="octave"></span></div><input type="range" data-gen="octave" min="0" max="1" step="0.01"></div>
+      <div class="group">
+        <div class="glabel">RANGE</div>
+        <div class="inline"><select id="lowSel" title="Lowest note"></select><select id="spanSel" title="Range above the lowest note"></select></div>
+      </div>
+      <div class="group">
+        <div class="glabel">CHORD CHANGE</div>
+        <button id="onChangeBtn" class="btn toggle" title="Always start a new note when the chord changes">NEW NOTE</button>
+      </div>
+    </div>
+    <div class="row reroll-row">
+      <button id="rerollBtn" class="btn hot big" title="R">⟳ REROLL ALL</button>
+      <button id="rerollNotesBtn" class="btn big" title="N — same rhythm, new notes">♪ NOTES</button>
+      <button id="rerollRhythmBtn" class="btn big" title="T — new rhythm, keeps the note contour">▮▮ RHYTHM</button>
+      <button id="mutateBtn" class="btn big" title="M — change about a third of the notes">✱ MUTATE</button>
+      <span class="sep"></span>
+      <button id="undoBtn" class="btn" title="Ctrl+Z">UNDO</button>
+      <button id="redoBtn" class="btn" title="Ctrl+Y">REDO</button>
+      <button id="clearBtn" class="btn" title="Remove all notes in unlocked bars">CLEAR</button>
+      <span class="sep"></span>
+      <button id="keepBtn" class="btn" title="K — keep this line in a slot">★ KEEP</button>
+      <div id="keptList" class="chips"></div>
+      <span id="seedInfo" class="lcd-inline seed" title="Rhythm seed · note seed"></span>
+    </div>
+    <div class="roll-wrap" id="rollWrap">
+      <canvas id="melLane"></canvas>
+      <canvas id="roll"></canvas>
+      <div id="barStrip" class="bar-strip"></div>
+    </div>
+    <div class="legend">
+      <span class="lg" style="--c:var(--root)">root</span><span class="lg" style="--c:var(--chord)">chord tone</span><span class="lg" style="--c:var(--key)">in key</span><span class="lg" style="--c:var(--out)">out of key</span><span class="lg" style="--c:var(--clash)">rubs melody</span>
+      <span class="lg-note">Melody lane above the roll shows the detected melody · rows are tinted with the current chord</span>
+    </div>
+  </section>
+
+  <!-- 4 SOUND -->
+  <section class="panel">
+    <div class="sec-head">
+      <span class="num">4</span><span class="sec-title">SUB SOUND</span>
+      <div class="seg" id="srcSeg">
+        <button data-v="synth" title="Synth modules only">SYNTH</button>
+        <button data-v="sample" title="Pitched one-shot only">ONE-SHOT</button>
+        <button data-v="layer" title="One-shot layered with the synth">LAYER</button>
+      </div>
+      <select id="presetSel" title="Presets"></select>
+      <button id="savePresetBtn" class="btn small">SAVE PRESET</button>
+      <button id="delPresetBtn" class="btn small" title="Delete this saved preset">DELETE</button>
+      <button id="randPatchBtn" class="btn small" title="Random patch">🎲 RANDOM PATCH</button>
+      <button id="testNoteBtn" class="btn small" title="Play a test note on the chord root">▶ TEST</button>
+    </div>
+    <div id="modules" class="modules"></div>
+    <div class="shots-head">
+      <span class="glabel">BASS ONE-SHOTS</span>
+      <button id="loadShotBtn" class="btn small">+ LOAD ONE-SHOTS</button>
+      <button id="demoShotBtn" class="btn small" title="Render the current synth patch into a one-shot">BOUNCE PATCH</button>
+      <span class="glabel">ONE-SHOTS PER</span>
+      <div class="seg" id="shotModeSeg">
+        <button data-v="one" title="Every note uses the selected one-shot">LINE</button>
+        <button data-v="bar" title="Each bar picks a one-shot from the pool">BAR</button>
+        <button data-v="note" title="Each note picks a one-shot from the pool">NOTE</button>
+      </div>
+      <span class="hint">Drop one-shots here · ● selects · POOL marks which ones rerolls may pick · they're saved for next time</span>
+      <input type="file" id="shotInput" accept="audio/*,.wav,.aif,.aiff,.mp3,.flac,.ogg,.m4a" multiple hidden>
+    </div>
+    <div id="shotList" class="shot-list"><div class="empty">No one-shots yet — load 808s, subs or bass hits and set SOURCE to ONE-SHOT or LAYER.</div></div>
+  </section>
+  <footer id="status">Load a melody clip or loop to start.</footer>
+</div>
+<script src="js/dsp.js"></script>
+<script src="js/theory.js"></script>
+<script src="js/synth.js"></script>
+<script src="js/gen.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
